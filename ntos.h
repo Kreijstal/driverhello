@@ -514,7 +514,6 @@ typedef struct _UNICODE_STRING {
 typedef const UNICODE_STRING *PCUNICODE_STRING;
 
 // IRP major function codes
-#define IRP_MJ_MAXIMUM_FUNCTION 0x1B
 
 // Debug filter constants
 #define DPFLTR_ERROR_LEVEL       0
@@ -6185,7 +6184,7 @@ InitializeListHead(
 
 _Must_inspect_result_
 BOOLEAN
-CFORCEINLINE
+__forceinline
 #if !defined(__MINGW32__)
 IsListEmpty(
 #endif
