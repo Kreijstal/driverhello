@@ -98,7 +98,6 @@ extern "C" {
 #ifndef MICROSECONDS
 #define MICROSECONDS(micros) (((signed __int64)(micros)) * NANOSECONDS(1000L))
 #endif
-q
 #ifndef MILLISECONDS
 #define MILLISECONDS(milli) (((signed __int64)(milli)) * MICROSECONDS(1000L))
 #endif
