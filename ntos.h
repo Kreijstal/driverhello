@@ -129,9 +129,7 @@ typedef LARGE_INTEGER PHYSICAL_ADDRESS;
 #ifndef _WIN32_WINNT_WIN10
 #define _WIN32_WINNT_WIN10 0x0A00
 #endif
-#if (_WIN32_WINNT < _WIN32_WINNT_WIN10)
-typedef PVOID PMEM_EXTENDED_PARAMETER;
-#endif
+// MinGW provides its own PMEM_EXTENDED_PARAMETER
 
 #ifndef IN_REGION
 #define IN_REGION(x, Base, Size) (((ULONG_PTR)(x) >= (ULONG_PTR)(Base)) && \
@@ -515,24 +513,18 @@ typedef struct _UNICODE_STRING {
 } UNICODE_STRING, *PUNICODE_STRING;
 typedef const UNICODE_STRING *PCUNICODE_STRING;
 
-typedef struct _DRIVER_OBJECT {
-    CSHORT Type;
-    CSHORT Size;
-    PVOID DeviceObject;
-    ULONG Flags;
-    PVOID DriverStart;
-    ULONG DriverSize;
-    PVOID DriverSection;
-    PVOID DriverExtension;
-    PUNICODE_STRING DriverName;
-    PUNICODE_STRING HardwareDatabase;
-    PVOID FastIoDispatch;
-    PVOID DriverInit;
-    PVOID DriverStartIo;
-    PVOID DriverUnload;
-    PVOID MajorFunction[IRP_MJ_MAXIMUM_FUNCTION + 1];
-} DRIVER_OBJECT;
-typedef struct _DRIVER_OBJECT *PDRIVER_OBJECT;
+// IRP major function codes
+#define IRP_MJ_MAXIMUM_FUNCTION 0x1B
+
+// Debug filter constants
+#define DPFLTR_ERROR_LEVEL       0
+#define DPFLTR_WARNING_LEVEL     1
+#define DPFLTR_TRACE_LEVEL       2
+#define DPFLTR_INFO_LEVEL        3
+#define DPFLTR_IHVDRIVER_ID      77
+
+// Stub for PAGED_CODE macro
+#define PAGED_CODE()
 
 #ifndef STATIC_UNICODE_STRING
 #define STATIC_UNICODE_STRING(string, value) \
@@ -4322,7 +4314,6 @@ typedef struct _DRIVER_OBJECT {
     PVOID DriverUnload;
     PVOID MajorFunction[IRP_MJ_MAXIMUM_FUNCTION + 1];
 
-// Original DRIVER_OBJECT definition remains for non-MinGW builds
 } DRIVER_OBJECT;
 typedef struct _DRIVER_OBJECT *PDRIVER_OBJECT;
 
