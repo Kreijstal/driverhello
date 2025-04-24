@@ -98,7 +98,7 @@ extern "C" {
 #ifndef MICROSECONDS
 #define MICROSECONDS(micros) (((signed __int64)(micros)) * NANOSECONDS(1000L))
 #endif
-
+q
 #ifndef MILLISECONDS
 #define MILLISECONDS(milli) (((signed __int64)(milli)) * MICROSECONDS(1000L))
 #endif
@@ -6182,14 +6182,20 @@ InitializeListHead(
     return;
 }
 
+#if defined(__MINGW32__)
+__forceinline
+BOOLEAN
+IsListEmpty(
+    const LIST_ENTRY* ListHead
+)
+#else
 _Must_inspect_result_
 BOOLEAN
 __forceinline
-#if !defined(__MINGW32__)
 IsListEmpty(
-#endif
     _In_ const LIST_ENTRY* ListHead
 )
+#endif
 {
     return (BOOLEAN)(ListHead->Flink == ListHead);
 }
