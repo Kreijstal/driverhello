@@ -57,7 +57,7 @@
 #pragma warning(disable: 4201) // nonstandard extension used : nameless struct/union
 #pragma warning(disable: 4214) // nonstandard extension used : bit field types other than int
 
-#if !defined(NTOS_RTL) && !defined(__MINGW32__)
+#if !defined(NTOS_RTL)
 #define NTOS_RTL
 
 
@@ -129,7 +129,7 @@ typedef LARGE_INTEGER PHYSICAL_ADDRESS;
 #ifndef _WIN32_WINNT_WIN10
 #define _WIN32_WINNT_WIN10 0x0A00
 #endif
-#if !defined(__MINGW32__) && (_WIN32_WINNT < _WIN32_WINNT_WIN10)
+#if (_WIN32_WINNT < _WIN32_WINNT_WIN10)
 typedef PVOID PMEM_EXTENDED_PARAMETER;
 #endif
 
@@ -507,12 +507,32 @@ typedef struct _EX_FAST_REF {
     };
 } EX_FAST_REF, *PEX_FAST_REF;
 
+// Fundamental types that must be available even with MinGW
 typedef struct _UNICODE_STRING {
     USHORT Length;
     USHORT MaximumLength;
     PWSTR  Buffer;
 } UNICODE_STRING, *PUNICODE_STRING;
 typedef const UNICODE_STRING *PCUNICODE_STRING;
+
+typedef struct _DRIVER_OBJECT {
+    CSHORT Type;
+    CSHORT Size;
+    PVOID DeviceObject;
+    ULONG Flags;
+    PVOID DriverStart;
+    ULONG DriverSize;
+    PVOID DriverSection;
+    PVOID DriverExtension;
+    PUNICODE_STRING DriverName;
+    PUNICODE_STRING HardwareDatabase;
+    PVOID FastIoDispatch;
+    PVOID DriverInit;
+    PVOID DriverStartIo;
+    PVOID DriverUnload;
+    PVOID MajorFunction[IRP_MJ_MAXIMUM_FUNCTION + 1];
+} DRIVER_OBJECT;
+typedef struct _DRIVER_OBJECT *PDRIVER_OBJECT;
 
 #ifndef STATIC_UNICODE_STRING
 #define STATIC_UNICODE_STRING(string, value) \
@@ -4302,6 +4322,7 @@ typedef struct _DRIVER_OBJECT {
     PVOID DriverUnload;
     PVOID MajorFunction[IRP_MJ_MAXIMUM_FUNCTION + 1];
 
+// Original DRIVER_OBJECT definition remains for non-MinGW builds
 } DRIVER_OBJECT;
 typedef struct _DRIVER_OBJECT *PDRIVER_OBJECT;
 
