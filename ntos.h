@@ -129,8 +129,10 @@ typedef LARGE_INTEGER PHYSICAL_ADDRESS;
 #ifndef _WIN32_WINNT_WIN10
 #define _WIN32_WINNT_WIN10 0x0A00
 #endif
+#ifndef _MINGW_H
 #if (_WIN32_WINNT < _WIN32_WINNT_WIN10)
 typedef PVOID PMEM_EXTENDED_PARAMETER;
+#endif
 #endif
 
 #ifndef IN_REGION
@@ -6174,6 +6176,7 @@ InitializeListHead(
 _Must_inspect_result_
 BOOLEAN
 CFORCEINLINE
+#ifndef _MINGW_H
 IsListEmpty(
     _In_ const LIST_ENTRY* ListHead
 )
@@ -12829,19 +12832,24 @@ typedef VOID(NTAPI *RTL_VERIFIER_NTDLLHEAPFREE_CALLBACK)(
     PVOID AllocationBase,
     SIZE_T AllocationSize);
 
+#ifndef _MINGW_H
 typedef struct _RTL_VERIFIER_THUNK_DESCRIPTOR {
     PCHAR ThunkName;
     PVOID ThunkOldAddress;
     PVOID ThunkNewAddress;
 } RTL_VERIFIER_THUNK_DESCRIPTOR, *PRTL_VERIFIER_THUNK_DESCRIPTOR;
+#endif
 
+#ifndef _MINGW_H
 typedef struct _RTL_VERIFIER_DLL_DESCRIPTOR {
     PWCHAR DllName;
     DWORD DllFlags;
     PVOID DllAddress;
     PRTL_VERIFIER_THUNK_DESCRIPTOR DllThunks;
 } RTL_VERIFIER_DLL_DESCRIPTOR, *PRTL_VERIFIER_DLL_DESCRIPTOR;
+#endif
 
+#ifndef _MINGW_H
 typedef struct _RTL_VERIFIER_PROVIDER_DESCRIPTOR {
     DWORD Length;
     PRTL_VERIFIER_DLL_DESCRIPTOR ProviderDlls;
@@ -12855,6 +12863,7 @@ typedef struct _RTL_VERIFIER_PROVIDER_DESCRIPTOR {
     PVOID RtlpDebugPageHeapDestroy;
     RTL_VERIFIER_NTDLLHEAPFREE_CALLBACK ProviderNtdllHeapFreeCallback;
 } RTL_VERIFIER_PROVIDER_DESCRIPTOR, *PRTL_VERIFIER_PROVIDER_DESCRIPTOR;
+#endif
 
 //
 // Application verifier standard flags.
@@ -12916,4 +12925,4 @@ RtlApplicationVerifierStop(
 
 #pragma warning(pop)
 
-#endif NTOS_RTL
+#endif // NTOS_RTL
