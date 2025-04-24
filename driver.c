@@ -1,4 +1,3 @@
-// Include our hypothetical *extended* header ONLY
 #include "windows.h"
 #include "ntstatus.h"
 #include "ntos.h"
