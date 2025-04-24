@@ -2,15 +2,6 @@
 #include "windows.h"
 #include "ntstatus.h"
 #include "ntos.h"
-// Assumes mingw-wdk.h now defines:
-// - NTSTATUS, STATUS_SUCCESS
-// - PDRIVER_OBJECT (pointing to a defined struct _DRIVER_OBJECT)
-// - DRIVER_UNLOAD (function ptr type)
-// - PUNICODE_STRING
-// - DbgPrintEx declaration
-// - UNREFERENCED_PARAMETER macro
-// - PAGED_CODE macro
-// - DPFLTR_... constants
 
 // Define a unique pool tag (Standard C, independent of header)
 // Cast to ULONG might be needed depending on how POOL_TAG type is defined/used elsewhere
@@ -18,7 +9,7 @@
 
 // Forward declaration for the Unload routine (using the type from mingw-wdk.h)
 // Note: The function signature must match the PDRIVER_UNLOAD definition
-VOID WDK_API HelloWorldUnload(
+VOID HelloWorldUnload(
     PDRIVER_OBJECT DriverObject // Parameter type matches PDRIVER_UNLOAD
 );
 
@@ -28,7 +19,7 @@ VOID WDK_API HelloWorldUnload(
 //
 // DriverEntry routine
 //
-NTSTATUS WDK_API DriverEntry(
+NTSTATUS DriverEntry(
     _In_ PDRIVER_OBJECT  DriverObject,
     _In_ PUNICODE_STRING RegistryPath
     )
@@ -59,7 +50,7 @@ NTSTATUS WDK_API DriverEntry(
 //
 // HelloWorldUnload routine
 //
-VOID WDK_API HelloWorldUnload(
+VOID HelloWorldUnload(
     _In_ PDRIVER_OBJECT DriverObject
     )
 {
