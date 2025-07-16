@@ -61,7 +61,7 @@ void CommunicateWithDriver() {
     // Wait briefly for driver to initialize
     Sleep(1000);
     
-    HANDLE hDevice = CreateFileA("\\\\.\\HelloDriver",
+    HANDLE hDevice = CreateFileA("\\\\.\\HelloWorld",
         GENERIC_READ | GENERIC_WRITE,
         FILE_SHARE_READ | FILE_SHARE_WRITE,
         NULL,

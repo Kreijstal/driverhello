@@ -2,7 +2,11 @@
 #include "ntstatus.h"
 #include "ntos.h"
 
-// Define MDL (Memory Descriptor List) structure
+// =======================================================================
+// Minimal WDK definitions for IRP handling
+// =======================================================================
+
+// MDL (Memory Descriptor List) structure
 typedef struct _MDL {
     struct _MDL *Next;
     SHORT Size;
@@ -14,7 +18,25 @@ typedef struct _MDL {
     ULONG ByteOffset;
 } MDL, *PMDL;
 
-// Define IRP structure (I/O Request Packet)
+// IO_STACK_LOCATION structure for IRP handling
+typedef struct _IO_STACK_LOCATION {
+    UCHAR MajorFunction;
+    UCHAR MinorFunction;
+    UCHAR Flags;
+    UCHAR Control;
+    union {
+        struct { 
+            ULONG OutputBufferLength; 
+            ULONG InputBufferLength; 
+            ULONG IoControlCode; 
+            PVOID Type3InputBuffer; 
+        } DeviceIoControl;
+    } Parameters;
+    PDEVICE_OBJECT DeviceObject;
+    PFILE_OBJECT FileObject;
+} IO_STACK_LOCATION, *PIO_STACK_LOCATION;
+
+// IRP structure with CurrentStackLocation
 typedef struct _IRP {
     PMDL MdlAddress;
     ULONG Flags;
@@ -32,82 +54,57 @@ typedef struct _IRP {
     KIRQL CancelIrql;
     CCHAR ApcEnvironment;
     ULONG AllocationFlags;
+    union {
+        PIO_STACK_LOCATION CurrentStackLocation;
+    } Tail;
 } IRP, *PIRP;
 
-// Define unique pool tag
-// Cast to ULONG might be needed depending on how POOL_TAG type is defined/used elsewhere
-#define POOL_TAG ((ULONG)'lleH')
+// Constants for IOCTL handling
+#define METHOD_BUFFERED 0
+#define FILE_ANY_ACCESS 0
 
-// Declare Missing WDM Function Prototypes
-NTSTATUS IoCreateDevice(
-    PDRIVER_OBJECT  DriverObject,
-    ULONG           DeviceExtensionSize,
-    PUNICODE_STRING DeviceName,
-    DEVICE_TYPE     DeviceType,
-    ULONG           DeviceCharacteristics,
-    BOOLEAN         Exclusive,
-    PDEVICE_OBJECT  *DeviceObject
-);
+// Our specific IOCTL definition (must match loader.c)
+#define IOCTL_HELLO CTL_CODE(FILE_DEVICE_UNKNOWN, 0x800, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
-NTSTATUS IoCreateSymbolicLink(
-    PUNICODE_STRING SymbolicLinkName,
-    PUNICODE_STRING DeviceName
-);
+// Priority boost constant
+#define IO_NO_INCREMENT 0
 
-VOID IoDeleteDevice(
-    PDEVICE_OBJECT DeviceObject
-);
+// Macro to get current stack location
+#define IoGetCurrentIrpStackLocation(Irp) ((Irp)->Tail.CurrentStackLocation)
 
-NTSTATUS IoDeleteSymbolicLink(
-    PUNICODE_STRING SymbolicLinkName
-);
+// =======================================================================
+// WDM Function Prototypes
+// =======================================================================
+NTSTATUS IoCreateDevice(PDRIVER_OBJECT, ULONG, PUNICODE_STRING, DEVICE_TYPE, ULONG, BOOLEAN, PDEVICE_OBJECT*);
+NTSTATUS IoCreateSymbolicLink(PUNICODE_STRING, PUNICODE_STRING);
+VOID IoDeleteDevice(PDEVICE_OBJECT);
+NTSTATUS IoDeleteSymbolicLink(PUNICODE_STRING);
+VOID IoCompleteRequest(PIRP, CCHAR);
+#define IofCompleteRequest(Irp, PriorityBoost) IoCompleteRequest(Irp, PriorityBoost)
 
-VOID IoCompleteRequest(
-    PIRP Irp,
-    CCHAR PriorityBoost
-);
+// =======================================================================
+// Driver Functions
+// =======================================================================
+NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING RegistryPath);
+VOID HelloWorldUnload(_In_ PDRIVER_OBJECT DriverObject);
+NTSTATUS HelloWorldCreateClose(_In_ PDEVICE_OBJECT DeviceObject, _In_ PIRP Irp);
+NTSTATUS HelloWorldDeviceControl(_In_ PDEVICE_OBJECT DeviceObject, _In_ PIRP Irp);
 
-#define IofCompleteRequest( Irp, PriorityBoost ) IoCompleteRequest( Irp, PriorityBoost )
-
-// Forward declaration for the Unload routine
-VOID HelloWorldUnload(
-    PDRIVER_OBJECT DriverObject
-);
-
-
-// NOTE: alloc_text still requires compiler/linker specific handling for GCC.
-
-//
-// DriverEntry routine
-//
 NTSTATUS DriverEntry(
     _In_ PDRIVER_OBJECT  DriverObject,
-    _In_ PUNICODE_STRING RegistryPath
-    )
+    _In_ PUNICODE_STRING RegistryPath)
 {
-    NTSTATUS status = STATUS_SUCCESS;
-
-    UNREFERENCED_PARAMETER(RegistryPath); // Parameter still unused in this simple example
-
-    DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL, "HelloWorldDriver: DriverEntry - Hello World! (mingw-wdk extended simulation)\n");
-
-    // !!! THIS NOW COMPILES !!!
-    // Because mingw-wdk.h defines struct _DRIVER_OBJECT, the compiler knows
-    // the 'DriverUnload' member exists and its type (PDRIVER_UNLOAD).
-    DriverObject->DriverUnload = HelloWorldUnload;
-
-    // We can potentially initialize MajorFunction entries if needed, e.g.:
-    // for (int i = 0; i < 28; i++) { // 28 is IRP_MJ_MAXIMUM_FUNCTION + 1
-    //     DriverObject->MajorFunction[i] = DefaultDispatchRoutine; // Assuming such a function exists
-    // }
-    // DriverObject->MajorFunction[IRP_MJ_CREATE] = MyCreateDispatch; // etc.
-    // But for Hello World, just printing is enough.
-
-    // Create device object
-    UNICODE_STRING deviceName;
-    RtlInitUnicodeString(&deviceName, L"\\Device\\HelloWorld");
-
+    NTSTATUS status;
     PDEVICE_OBJECT deviceObject = NULL;
+    UNICODE_STRING deviceName, symLink;
+
+    UNREFERENCED_PARAMETER(RegistryPath);
+
+    DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL, "HelloWorldDriver: DriverEntry\n");
+
+    RtlInitUnicodeString(&deviceName, L"\\Device\\HelloWorld");
+    RtlInitUnicodeString(&symLink, L"\\DosDevices\\HelloWorld");
+
     status = IoCreateDevice(
         DriverObject,
         0,
@@ -122,10 +119,6 @@ NTSTATUS DriverEntry(
         return status;
     }
 
-    // Create symbolic link
-    UNICODE_STRING symLink;
-    RtlInitUnicodeString(&symLink, L"\\DosDevices\\HelloWorld");
-
     status = IoCreateSymbolicLink(&symLink, &deviceName);
     if (!NT_SUCCESS(status)) {
         DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL, "Failed to create symlink (0x%08X)\n", status);
@@ -133,21 +126,82 @@ NTSTATUS DriverEntry(
         return status;
     }
 
+    DriverObject->DriverUnload = HelloWorldUnload;
+    DriverObject->MajorFunction[IRP_MJ_CREATE] = HelloWorldCreateClose;
+    DriverObject->MajorFunction[IRP_MJ_CLOSE] = HelloWorldCreateClose;
+    DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = HelloWorldDeviceControl;
+
     DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL, "HelloWorldDriver: Device and symlink created successfully\n");
-    return status;
+    return STATUS_SUCCESS;
 }
 
-//
-// HelloWorldUnload routine
-//
-VOID HelloWorldUnload(
-    _In_ PDRIVER_OBJECT DriverObject
-    )
+VOID HelloWorldUnload(_In_ PDRIVER_OBJECT DriverObject)
 {
-    UNREFERENCED_PARAMETER(DriverObject);
-
+    UNICODE_STRING symLink;
     PAGED_CODE();
 
-    DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL, "HelloWorldDriver: DriverUnload - Goodbye World! (mingw-wdk extended simulation)\n");
+    DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL, "HelloWorldDriver: Unloading...\n");
+
+    RtlInitUnicodeString(&symLink, L"\\DosDevices\\HelloWorld");
+    IoDeleteSymbolicLink(&symLink);
+
+    if (DriverObject->DeviceObject) {
+        IoDeleteDevice(DriverObject->DeviceObject);
+    }
+
     DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL, "HelloWorldDriver: Driver unloaded.\n");
+}
+
+NTSTATUS HelloWorldCreateClose(
+    _In_ PDEVICE_OBJECT DeviceObject,
+    _In_ PIRP Irp)
+{
+    UNREFERENCED_PARAMETER(DeviceObject);
+    
+    Irp->IoStatus.Status = STATUS_SUCCESS;
+    Irp->IoStatus.Information = 0;
+    IoCompleteRequest(Irp, IO_NO_INCREMENT);
+    return STATUS_SUCCESS;
+}
+
+NTSTATUS HelloWorldDeviceControl(
+    _In_ PDEVICE_OBJECT DeviceObject,
+    _In_ PIRP Irp)
+{
+    UNREFERENCED_PARAMETER(DeviceObject);
+
+    PIO_STACK_LOCATION stack = IoGetCurrentIrpStackLocation(Irp);
+    NTSTATUS status = STATUS_SUCCESS;
+    ULONG_PTR info = 0;
+
+    switch (stack->Parameters.DeviceIoControl.IoControlCode) {
+        case IOCTL_HELLO:
+            DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL, "IOCTL_HELLO received!\n");
+            
+            char* buffer = (char*)Irp->AssociatedIrp.SystemBuffer;
+            ULONG inSize = stack->Parameters.DeviceIoControl.InputBufferLength;
+            ULONG outSize = stack->Parameters.DeviceIoControl.OutputBufferLength;
+            const char* response = "Hello back from the kernel!";
+            size_t responseLen = strlen(response) + 1;
+
+            if (buffer && inSize > 0) {
+                 DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL, "User mode says: %s\n", buffer);
+            }
+
+            if (outSize >= responseLen) {
+                RtlCopyMemory(buffer, response, responseLen);
+                info = responseLen;
+            } else {
+                status = STATUS_BUFFER_TOO_SMALL;
+            }
+            break;
+        default:
+            status = STATUS_INVALID_DEVICE_REQUEST;
+            break;
+    }
+
+    Irp->IoStatus.Status = status;
+    Irp->IoStatus.Information = info;
+    IoCompleteRequest(Irp, IO_NO_INCREMENT);
+    return status;
 }
