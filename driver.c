@@ -2,14 +2,76 @@
 #include "ntstatus.h"
 #include "ntos.h"
 
-// Define a unique pool tag (Standard C, independent of header)
+// Define MDL (Memory Descriptor List) structure
+typedef struct _MDL {
+    struct _MDL *Next;
+    SHORT Size;
+    SHORT MdlFlags;
+    struct _EPROCESS *Process;
+    PVOID MappedSystemVa;
+    PVOID StartVa;
+    ULONG ByteCount;
+    ULONG ByteOffset;
+} MDL, *PMDL;
+
+// Define IRP structure (I/O Request Packet)
+typedef struct _IRP {
+    PMDL MdlAddress;
+    ULONG Flags;
+    union {
+        struct _IRP *MasterIrp;
+        __volatile LONG IrpCount;
+        PVOID SystemBuffer;
+    } AssociatedIrp;
+    IO_STATUS_BLOCK IoStatus;
+    KPROCESSOR_MODE RequestorMode;
+    BOOLEAN PendingReturned;
+    CHAR StackCount;
+    CHAR CurrentLocation;
+    BOOLEAN Cancel;
+    KIRQL CancelIrql;
+    CCHAR ApcEnvironment;
+    ULONG AllocationFlags;
+} IRP, *PIRP;
+
+// Define unique pool tag
 // Cast to ULONG might be needed depending on how POOL_TAG type is defined/used elsewhere
 #define POOL_TAG ((ULONG)'lleH')
 
-// Forward declaration for the Unload routine (using the type from mingw-wdk.h)
-// Note: The function signature must match the PDRIVER_UNLOAD definition
+// Declare Missing WDM Function Prototypes
+NTSTATUS IoCreateDevice(
+    PDRIVER_OBJECT  DriverObject,
+    ULONG           DeviceExtensionSize,
+    PUNICODE_STRING DeviceName,
+    DEVICE_TYPE     DeviceType,
+    ULONG           DeviceCharacteristics,
+    BOOLEAN         Exclusive,
+    PDEVICE_OBJECT  *DeviceObject
+);
+
+NTSTATUS IoCreateSymbolicLink(
+    PUNICODE_STRING SymbolicLinkName,
+    PUNICODE_STRING DeviceName
+);
+
+VOID IoDeleteDevice(
+    PDEVICE_OBJECT DeviceObject
+);
+
+NTSTATUS IoDeleteSymbolicLink(
+    PUNICODE_STRING SymbolicLinkName
+);
+
+VOID IoCompleteRequest(
+    PIRP Irp,
+    CCHAR PriorityBoost
+);
+
+#define IofCompleteRequest( Irp, PriorityBoost ) IoCompleteRequest( Irp, PriorityBoost )
+
+// Forward declaration for the Unload routine
 VOID HelloWorldUnload(
-    PDRIVER_OBJECT DriverObject // Parameter type matches PDRIVER_UNLOAD
+    PDRIVER_OBJECT DriverObject
 );
 
 
@@ -41,8 +103,37 @@ NTSTATUS DriverEntry(
     // DriverObject->MajorFunction[IRP_MJ_CREATE] = MyCreateDispatch; // etc.
     // But for Hello World, just printing is enough.
 
-    DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL, "HelloWorldDriver: Driver loaded successfully (unload routine set).\n");
+    // Create device object
+    UNICODE_STRING deviceName;
+    RtlInitUnicodeString(&deviceName, L"\\Device\\HelloWorld");
 
+    PDEVICE_OBJECT deviceObject = NULL;
+    status = IoCreateDevice(
+        DriverObject,
+        0,
+        &deviceName,
+        FILE_DEVICE_UNKNOWN,
+        0,
+        FALSE,
+        &deviceObject);
+
+    if (!NT_SUCCESS(status)) {
+        DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL, "Failed to create device (0x%08X)\n", status);
+        return status;
+    }
+
+    // Create symbolic link
+    UNICODE_STRING symLink;
+    RtlInitUnicodeString(&symLink, L"\\DosDevices\\HelloWorld");
+
+    status = IoCreateSymbolicLink(&symLink, &deviceName);
+    if (!NT_SUCCESS(status)) {
+        DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL, "Failed to create symlink (0x%08X)\n", status);
+        IoDeleteDevice(deviceObject);
+        return status;
+    }
+
+    DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL, "HelloWorldDriver: Device and symlink created successfully\n");
     return status;
 }
 
