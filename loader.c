@@ -44,12 +44,26 @@ BOOL ManageDriverService(const char* serviceName, const char* driverPath, BOOL i
             CloseServiceHandle(service);
         }
     } else {
-        service = OpenService(scm, serviceName, SERVICE_ALL_ACCESS);
+        // UNLOAD LOGIC
+        service = OpenService(scm, serviceName, SERVICE_STOP | DELETE);
         if (service) {
             SERVICE_STATUS status;
-            ControlService(service, SERVICE_CONTROL_STOP, &status);
-            success = DeleteService(service);
+            printf("Stopping service...\n");
+            if (ControlService(service, SERVICE_CONTROL_STOP, &status)) {
+                printf("Service stopped successfully.\n");
+                printf("Deleting service...\n");
+                if (DeleteService(service)) {
+                    printf("Service deleted successfully.\n");
+                    success = TRUE;
+                } else {
+                    printf("Failed to delete service (Error: %d)\n", GetLastError());
+                }
+            } else {
+                printf("Failed to stop service (Error: %d)\n", GetLastError());
+            }
             CloseServiceHandle(service);
+        } else {
+             printf("Failed to open service for unload (Error: %d)\n", GetLastError());
         }
     }
 
