@@ -75,14 +75,14 @@ void CommunicateWithDriver() {
     // Wait briefly for driver to initialize
     Sleep(1000);
     
-    printf("Attempting to open device...\n");
+    printf("Testing device paths...\n");
     
-    // Try all possible device path formats
+    // Test paths including non-existent one for reference
     const char* paths[] = {
-        "\\\\.\\HelloWorld",
-        "\\\\?\\GLOBALROOT\\Device\\HelloWorld",
-        "\\Device\\HelloWorld",
-        "\\\\.\\GLOBAL\\HelloWorld"
+        "\\\\.\\HelloWorld",  // Our device
+        "\\\\.\\NonexistentDevice",  // Should give FILE_NOT_FOUND
+        "\\Device\\HelloWorld",  // Direct path
+        "\\??\\HelloWorld"  // Alternative NT path
     };
     
     HANDLE hDevice = INVALID_HANDLE_VALUE;

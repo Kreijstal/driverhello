@@ -45,6 +45,17 @@ NTSTATUS DriverEntry(
         &deviceObject);
 
     if (NT_SUCCESS(status)) {
+        // Configure device for user-mode access
+        deviceObject->Flags |= DO_BUFFERED_IO;
+        deviceObject->Characteristics |= FILE_DEVICE_SECURE_OPEN;
+        deviceObject->Flags &= ~DO_DEVICE_INITIALIZING;
+        
+        DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL,
+            "Device configured: Flags=0x%X, Characteristics=0x%X\n",
+            deviceObject->Flags, deviceObject->Characteristics);
+    }
+
+    if (NT_SUCCESS(status)) {
         deviceObject->Flags |= DO_BUFFERED_IO;
         deviceObject->Flags &= ~DO_DEVICE_INITIALIZING;
         DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL,
@@ -57,12 +68,20 @@ NTSTATUS DriverEntry(
     }
 
     DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL, "Creating symbolic link: %wZ -> %wZ\n", &symLinkName, &deviceName);
+    DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL,
+        "Creating symbolic link: %wZ -> %wZ\n", &symLinkName, &deviceName);
+        
     status = IoCreateSymbolicLink(&symLinkName, &deviceName);
     if (!NT_SUCCESS(status)) {
-        DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL, "Failed to create symlink (0x%08X)\n", status);
+        DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL,
+            "Failed to create symlink %wZ -> %wZ (0x%08X)\n",
+            &symLinkName, &deviceName, status);
         IoDeleteDevice(deviceObject);
         return status;
     }
+    
+    DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL,
+        "Symbolic link created successfully\n");
     DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL, "Symbolic link created successfully\n");
 
     // Store device in driver object for cleanup
