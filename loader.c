@@ -23,28 +23,76 @@ BOOL ExtractDriver(const char* path) {
 
 BOOL ManageDriverService(const char* serviceName, const char* driverPath, BOOL install) {
     SC_HANDLE scm = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
-    if (!scm) return FALSE;
+    if (!scm) {
+        printf("Failed to open SCM (Error: %d)\n", GetLastError());
+        return FALSE;
+    }
 
     BOOL success = FALSE;
     SC_HANDLE service = NULL;
 
     if (install) {
+        // --- NEW RESILIENCY LOGIC ---
+        // Before creating, check if a stale service exists and try to remove it.
+        service = OpenService(scm, serviceName, SERVICE_STOP | DELETE | SERVICE_QUERY_STATUS);
+        if (service) {
+            printf("Found a pre-existing service '%s'. Attempting to clean up...\n", serviceName);
+            
+            // Try to stop it first.
+            SERVICE_STATUS status;
+            ControlService(service, SERVICE_CONTROL_STOP, &status);
+            
+            // Wait for the service to actually stop.
+            // Poll for up to 5 seconds.
+            for (int i = 0; i < 10; i++) {
+                if (!QueryServiceStatus(service, &status)) break;
+                if (status.dwCurrentState == SERVICE_STOPPED) break;
+                Sleep(500);
+            }
+
+            if (!DeleteService(service)) {
+                // If deletion fails, it might be marked for deletion. A reboot is the only fix.
+                if (GetLastError() == ERROR_SERVICE_MARKED_FOR_DELETE) {
+                    printf("Service is marked for deletion. A reboot is required to fully remove it.\n");
+                } else {
+                    printf("Failed to delete the pre-existing service (Error: %d). Manual cleanup with 'sc delete' might be needed.\n", GetLastError());
+                }
+                CloseServiceHandle(service);
+                CloseServiceHandle(scm);
+                return FALSE; // Can't proceed.
+            }
+
+            printf("Pre-existing service deleted. Waiting a moment for SCM to update...\n");
+            CloseServiceHandle(service);
+            Sleep(2000); // Give the SCM a second or two to process the deletion.
+        }
+        // --- END OF NEW LOGIC ---
+
+        // Now, proceed with creating the service. This should be a clean attempt.
         service = CreateService(scm, serviceName, serviceName,
             SERVICE_ALL_ACCESS, SERVICE_KERNEL_DRIVER,
             SERVICE_DEMAND_START, SERVICE_ERROR_NORMAL,
             driverPath, NULL, NULL, NULL, NULL, NULL);
-        
-        if (!service && GetLastError() == ERROR_SERVICE_EXISTS) {
-            service = OpenService(scm, serviceName, SERVICE_ALL_ACCESS);
+
+        if (!service) {
+            printf("CreateService failed after cleanup attempt (Error: %d)\n", GetLastError());
+            CloseServiceHandle(scm);
+            return FALSE;
         }
 
-        if (service) {
-            success = StartService(service, 0, NULL) ||
-                     GetLastError() == ERROR_SERVICE_ALREADY_RUNNING;
-            CloseServiceHandle(service);
+        if (StartService(service, 0, NULL)) {
+            success = TRUE;
+        } else {
+            // Check if it's already running, which shouldn't happen on a clean install but is good practice.
+            if (GetLastError() == ERROR_SERVICE_ALREADY_RUNNING) {
+                success = TRUE;
+            } else {
+                 printf("StartService failed (Error: %d)\n", GetLastError());
+            }
         }
-    } else {
-        // UNLOAD LOGIC
+        CloseServiceHandle(service);
+
+    } else { // UNLOAD LOGIC (remains the same)
         service = OpenService(scm, serviceName, SERVICE_STOP | DELETE);
         if (service) {
             SERVICE_STATUS status;
@@ -60,6 +108,16 @@ BOOL ManageDriverService(const char* serviceName, const char* driverPath, BOOL i
                 }
             } else {
                 printf("Failed to stop service (Error: %d)\n", GetLastError());
+                 // If it's not running, we can still try to delete it.
+                if (GetLastError() == ERROR_SERVICE_NOT_ACTIVE) {
+                     printf("Service was not running. Deleting...\n");
+                     if (DeleteService(service)) {
+                        printf("Service deleted successfully.\n");
+                        success = TRUE;
+                     } else {
+                        printf("Failed to delete service (Error: %d)\n", GetLastError());
+                     }
+                }
             }
             CloseServiceHandle(service);
         } else {
