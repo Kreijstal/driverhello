@@ -80,8 +80,19 @@ void CommunicateWithDriver() {
         FILE_SHARE_READ | FILE_SHARE_WRITE,
         NULL,
         OPEN_EXISTING,
-        FILE_ATTRIBUTE_NORMAL,
+        FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED,
         NULL);
+
+    if (hDevice == INVALID_HANDLE_VALUE) {
+        // Try alternative path format if first attempt fails
+        hDevice = CreateFileA("\\\\?\\GLOBALROOT\\Device\\HelloWorld",
+            GENERIC_READ | GENERIC_WRITE,
+            FILE_SHARE_READ | FILE_SHARE_WRITE,
+            NULL,
+            OPEN_EXISTING,
+            FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED,
+            NULL);
+    }
 
     if (hDevice == INVALID_HANDLE_VALUE) {
         printf("Failed to open device (Error: %d)\n", GetLastError());
