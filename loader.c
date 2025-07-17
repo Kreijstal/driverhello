@@ -75,28 +75,52 @@ void CommunicateWithDriver() {
     // Wait briefly for driver to initialize
     Sleep(1000);
     
-    HANDLE hDevice = CreateFileA("\\\\.\\HelloWorld",
-        GENERIC_READ | GENERIC_WRITE,
-        FILE_SHARE_READ | FILE_SHARE_WRITE,
-        NULL,
-        OPEN_EXISTING,
-        FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED,
-        NULL);
-
-    if (hDevice == INVALID_HANDLE_VALUE) {
-        // Try alternative path format if first attempt fails
-        hDevice = CreateFileA("\\\\?\\GLOBALROOT\\Device\\HelloWorld",
+    printf("Attempting to open device...\n");
+    
+    // Try all possible device path formats
+    const char* paths[] = {
+        "\\\\.\\HelloWorld",
+        "\\\\?\\GLOBALROOT\\Device\\HelloWorld",
+        "\\Device\\HelloWorld",
+        "\\\\.\\GLOBAL\\HelloWorld"
+    };
+    
+    HANDLE hDevice = INVALID_HANDLE_VALUE;
+    
+    for (int i = 0; i < sizeof(paths)/sizeof(paths[0]); i++) {
+        printf("Trying path: %s\n", paths[i]);
+        hDevice = CreateFileA(
+            paths[i],
             GENERIC_READ | GENERIC_WRITE,
-            FILE_SHARE_READ | FILE_SHARE_WRITE,
+            0,
             NULL,
             OPEN_EXISTING,
-            FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OVERLAPPED,
+            0,
             NULL);
+            
+        if (hDevice != INVALID_HANDLE_VALUE) {
+            break;
+        }
+        printf("Failed (Error: %d)\n", GetLastError());
     }
 
     if (hDevice == INVALID_HANDLE_VALUE) {
-        printf("Failed to open device (Error: %d)\n", GetLastError());
-        return;
+        DWORD err = GetLastError();
+        printf("Failed to open \\\\.\\Global\\HelloWorld (Error: %d)\n", err);
+        
+        // Try standard path
+        hDevice = CreateFileA("\\\\.\\HelloWorld",
+            GENERIC_READ | GENERIC_WRITE,
+            0,
+            NULL,
+            OPEN_EXISTING,
+            0,
+            NULL);
+            
+        if (hDevice == INVALID_HANDLE_VALUE) {
+            printf("Failed to open \\\\.\\HelloWorld (Error: %d)\n", GetLastError());
+            return;
+        }
     }
 
     char input[] = "Hello from user mode!";

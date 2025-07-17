@@ -56,12 +56,14 @@ NTSTATUS DriverEntry(
         return status;
     }
 
+    DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL, "Creating symbolic link: %wZ -> %wZ\n", &symLinkName, &deviceName);
     status = IoCreateSymbolicLink(&symLinkName, &deviceName);
     if (!NT_SUCCESS(status)) {
         DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL, "Failed to create symlink (0x%08X)\n", status);
         IoDeleteDevice(deviceObject);
         return status;
     }
+    DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL, "Symbolic link created successfully\n");
 
     // Store device in driver object for cleanup
     DriverObject->DeviceObject = deviceObject;
