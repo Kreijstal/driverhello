@@ -1,7 +1,7 @@
 #include <windows.h>
 #include <stdio.h>
 
-#define DRIVER_NAME "HelloWorld"
+#define DRIVER_NAME "HelloWorld" 
 #define DRIVER_RESOURCE_ID 101
 #define IOCTL_HELLO CTL_CODE(FILE_DEVICE_UNKNOWN, 0x800, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
