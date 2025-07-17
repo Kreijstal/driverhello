@@ -1,7 +1,4 @@
-#include "windows.h"
-#include "ntstatus.h"
-#include "ntos.h"
-
+#include <ntddk.h>
 // Define a unique pool tag (Standard C, independent of header)
 // Cast to ULONG might be needed depending on how POOL_TAG type is defined/used elsewhere
 #define POOL_TAG ((ULONG)'lleH')
@@ -54,8 +51,6 @@ VOID HelloWorldUnload(
     )
 {
     UNREFERENCED_PARAMETER(DriverObject);
-
-    PAGED_CODE();
 
     DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL, "HelloWorldDriver: DriverUnload - Goodbye World! (mingw-wdk extended simulation)\n");
     DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL, "HelloWorldDriver: Driver unloaded.\n");

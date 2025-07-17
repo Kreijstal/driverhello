@@ -1,8 +1,9 @@
-# MinGW-w64 Makefile for driver project with loader
+# MinGW-w64 Makefile for driver project with DDK headers
 CC = gcc
 LD = ld
 WINDRES = windres
-CFLAGS = -nostdlib -fno-builtin -fno-stack-protector
+CFLAGS = -nostdlib -fno-builtin -fno-stack-protector -I/ucrt64/include/ddk -Wno-macro-redefined -Wno-redefined
+LDFLAGS = -Wl,--subsystem,native -Wl,--entry,DriverEntry -shared -nodefaultlib
 LDFLAGS = --subsystem native -lntoskrnl
 LOADER_LIBS = -ladvapi32
 
